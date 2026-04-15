@@ -1,0 +1,26 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>📳 Vibrate Control</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+<h2>📳 Phone Vibrate Control</h2>
+
+<div class="buttons">
+  <button onclick="onVibrate()">ON</button>
+  <button onclick="blinkVibrate()">BLINK</button>
+  <button onclick="offVibrate()">OFF</button>
+</div>
+
+<h3>⚡ Speed Control</h3>
+<input type="range" min="100" max="1500" value="800" id="speedSlider">
+<p>Speed: <span id="speedValue">800</span> ms</p>
+
+<script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-app.js"></script>
+<script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-database.js"></script>
+<script src="script.js"></script>
+
+</body>
+</html>

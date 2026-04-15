@@ -1,0 +1,41 @@
+body {
+  background: black;
+  color: white;
+  text-align: center;
+  font-family: Arial;
+}
+
+h2 {
+  margin-top: 30px;
+}
+
+.buttons {
+  margin: 20px;
+}
+
+button {
+  padding: 15px 25px;
+  margin: 10px;
+  font-size: 18px;
+  border-radius: 10px;
+  border: none;
+  cursor: pointer;
+}
+
+button:nth-child(1) {
+  background: lime;
+}
+
+button:nth-child(2) {
+  background: yellow;
+  color: black;
+}
+
+button:nth-child(3) {
+  background: red;
+  color: white;
+}
+
+input {
+  width: 80%;
+}
