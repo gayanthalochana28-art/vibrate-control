@@ -3,201 +3,157 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
-    <title>VibeControl Pro - Live Screen Share & Camera</title>
+    <title>VibeControl Pro - Working Camera & Screen Share</title>
     <link rel="stylesheet" href="style.css">
 </head>
 <body>
     <div class="container">
-        <!-- Header -->
         <div class="header">
             <h1>📱 VibeControl Pro</h1>
-            <p>Live Screen Share | Camera | Gallery | Remote Control</p>
+            <p>Working Camera | Screen Share | Remote Control</p>
         </div>
 
-        <!-- Device & Status Bar -->
+        <!-- Status Bar -->
         <div class="status-bar">
-            <div class="status-item">
-                <span class="icon">🔋</span>
-                <span id="batteryLevel">--%</span>
-            </div>
-            <div class="status-item">
-                <span class="icon">📶</span>
-                <span id="signalStrength">--</span>
-            </div>
-            <div class="status-item">
-                <span class="icon">⏰</span>
-                <span id="currentTime">--:--</span>
-            </div>
-            <div class="status-item">
-                <span class="icon">💾</span>
-                <span id="storageStatus">--</span>
-            </div>
+            <div class="status-item">🔋 <span id="batteryLevel">--%</span></div>
+            <div class="status-item">📶 <span id="signalStrength">Good</span></div>
+            <div class="status-item">⏰ <span id="currentTime">--:--</span></div>
+            <div class="status-item">📱 <span id="deviceStatus">Online</span></div>
         </div>
 
         <!-- Device Info -->
         <div class="card">
-            <div class="device-header">
-                <div class="device-id">
+            <div class="device-info-row">
+                <div class="device-id-box">
                     <strong>📱 Device ID:</strong>
                     <code id="deviceId">Loading...</code>
                     <button onclick="copyDeviceId()" class="icon-btn">📋</button>
                 </div>
-                <div class="connection-badge" id="connectionStatus">
-                    <span class="dot"></span>
-                    <span>Connected</span>
+                <div class="connection-status" id="connectionStatus">
+                    <span class="green-dot"></span> Firebase Connected
                 </div>
             </div>
             
-            <!-- Target Device -->
             <div class="target-section">
                 <label>🎯 Target Device ID:</label>
                 <div class="input-group">
-                    <input type="text" id="targetDevice" placeholder="Enter target device ID" />
-                    <button onclick="setTargetDevice()" class="btn-primary">Set</button>
+                    <input type="text" id="targetDevice" placeholder="Paste target device ID here" />
+                    <button onclick="setTargetDevice()" class="btn-primary">Set Target</button>
                 </div>
-                <div id="targetStatus" class="target-status"></div>
+                <div id="targetStatus"></div>
             </div>
         </div>
 
-        <!-- Main Control Tabs -->
-        <div class="tabs">
-            <button class="tab-btn active" onclick="switchTab('live')">📹 Live View</button>
-            <button class="tab-btn" onclick="switchTab('screen')">🖥️ Screen Share</button>
-            <button class="tab-btn" onclick="switchTab('camera')">📷 Camera</button>
-            <button class="tab-btn" onclick="switchTab('gallery')">🖼️ Gallery</button>
-            <button class="tab-btn" onclick="switchTab('control')">🎮 Control</button>
-        </div>
-
-        <!-- Live View Tab -->
-        <div id="liveTab" class="tab-content active">
-            <div class="card">
-                <h3>📡 Live Remote View</h3>
-                <div class="video-container">
-                    <video id="liveVideo" autoplay playsinline class="live-video"></video>
-                    <div id="livePlaceholder" class="video-placeholder">
-                        <span>📹 Waiting for remote stream...</span>
+        <!-- Camera Section - FIXED -->
+        <div class="card camera-card">
+            <h3>📷 Live Camera <span id="cameraStatus" class="status-badge">Inactive</span></h3>
+            <div class="video-wrapper">
+                <video id="cameraVideo" autoplay playsinline muted class="camera-feed"></video>
+                <div id="cameraOverlay" class="camera-overlay">
+                    <div class="overlay-content">
+                        <span class="camera-icon">📷</span>
+                        <p>Camera not active</p>
+                        <button onclick="startCamera()" class="btn-primary">Start Camera</button>
                     </div>
                 </div>
-                <div class="live-controls">
-                    <button onclick="startLiveView()" class="btn-success">▶️ Start Live View</button>
-                    <button onclick="stopLiveView()" class="btn-danger">⏹️ Stop Live View</button>
-                    <button onclick="captureLiveFrame()" class="btn-info">📸 Capture Frame</button>
-                </div>
+            </div>
+            <div class="camera-controls">
+                <button id="startCameraBtn" class="btn-success" onclick="startCamera()">▶️ Start Camera</button>
+                <button id="stopCameraBtn" class="btn-danger" onclick="stopCamera()" disabled>⏹️ Stop Camera</button>
+                <button id="captureBtn" class="btn-primary" onclick="capturePhoto()" disabled>📸 Capture Photo</button>
+                <button id="switchCameraBtn" class="btn-info" onclick="switchCamera()" disabled>🔄 Switch Camera</button>
+            </div>
+            <div id="photoPreview" class="photo-preview" style="display:none;">
+                <h4>Captured Photo:</h4>
+                <img id="capturedImage" alt="Captured">
+                <button onclick="sendPhotoToTarget()" class="btn-success">📤 Send to Target</button>
+                <button onclick="closePreview()" class="btn-secondary">Close</button>
             </div>
         </div>
 
-        <!-- Screen Share Tab -->
-        <div id="screenTab" class="tab-content">
-            <div class="card">
-                <h3>🖥️ Screen Share</h3>
-                <div class="video-container">
-                    <video id="screenVideo" autoplay playsinline class="screen-video"></video>
-                    <div id="screenPlaceholder" class="video-placeholder">
-                        <span>🖥️ No screen share active</span>
+        <!-- Screen Share Section -->
+        <div class="card">
+            <h3>🖥️ Screen Share</h3>
+            <div class="video-wrapper">
+                <video id="screenVideo" autoplay playsinline class="screen-feed"></video>
+                <div id="screenOverlay" class="camera-overlay">
+                    <div class="overlay-content">
+                        <span class="camera-icon">🖥️</span>
+                        <p>No screen share active</p>
                     </div>
                 </div>
+            </div>
+            <div class="button-group">
+                <button id="startScreenShareBtn" class="btn-screen" onclick="startScreenShare()">🖥️ Start Sharing</button>
+                <button id="stopScreenShareBtn" class="btn-danger" onclick="stopScreenShare()" disabled>⏹️ Stop Sharing</button>
+                <button id="viewScreenBtn" class="btn-info" onclick="viewRemoteScreen()">👁️ View Remote Screen</button>
+            </div>
+        </div>
+
+        <!-- Remote View Section -->
+        <div class="card">
+            <h3>📡 Remote View</h3>
+            <div class="video-wrapper">
+                <video id="remoteVideo" autoplay playsinline class="remote-feed"></video>
+                <div id="remoteOverlay" class="camera-overlay">
+                    <div class="overlay-content">
+                        <span class="camera-icon">📡</span>
+                        <p>Waiting for remote stream...</p>
+                    </div>
+                </div>
+            </div>
+            <div class="button-group">
+                <button onclick="startRemoteView()" class="btn-info">👁️ Start Remote View</button>
+                <button onclick="stopRemoteView()" class="btn-danger">⏹️ Stop Remote View</button>
+            </div>
+        </div>
+
+        <!-- Control Section -->
+        <div class="card">
+            <h3>🎮 Remote Control</h3>
+            
+            <div class="control-group">
+                <label>📳 Vibration Control</label>
                 <div class="button-group">
-                    <button id="startScreenShare" class="btn-screen">
-                        🖥️ Start Sharing
-                    </button>
-                    <button id="stopScreenShare" class="btn-danger">
-                        ⏹️ Stop Sharing
-                    </button>
-                    <button id="viewScreenShare" class="btn-info">
-                        👁️ View Remote Screen
-                    </button>
+                    <button onclick="sendVibrate()" class="btn-vibrate">📳 Vibrate Target</button>
+                    <button onclick="toggleAutoVibrate()" id="autoVibeBtn" class="btn-toggle">🔄 Auto-Vibrate: OFF</button>
+                </div>
+                <div class="slider-group">
+                    <span>💪 Intensity:</span>
+                    <input type="range" id="intensity" min="0" max="100" value="50">
+                    <span id="intensityValue">50%</span>
+                </div>
+                <div class="select-group">
+                    <span>🎵 Pattern:</span>
+                    <select id="vibePattern">
+                        <option value="default">Default</option>
+                        <option value="pulse">Pulse</option>
+                        <option value="long">Long</option>
+                        <option value="short">Short</option>
+                        <option value="heartbeat">Heartbeat</option>
+                        <option value="sos">SOS</option>
+                    </select>
+                </div>
+            </div>
+
+            <div class="control-group">
+                <label>🎬 Video URL</label>
+                <div class="input-group">
+                    <input type="text" id="videoUrl" placeholder="Enter video URL (mp4 link)" />
+                    <button onclick="sendVideoToTarget()" class="btn-primary">Play on Target</button>
+                </div>
+            </div>
+
+            <div class="control-group">
+                <label>🔔 Send Notification</label>
+                <div class="input-group">
+                    <input type="text" id="notificationMsg" placeholder="Enter message" />
+                    <button onclick="sendNotificationToTarget()" class="btn-info">Send</button>
                 </div>
             </div>
         </div>
 
-        <!-- Camera Tab -->
-        <div id="cameraTab" class="tab-content">
-            <div class="card">
-                <h3>📷 Camera Control</h3>
-                <div class="video-container">
-                    <video id="cameraVideo" autoplay playsinline muted class="camera-video"></video>
-                    <div id="cameraPlaceholder" class="video-placeholder">
-                        <span>📷 Camera not active</span>
-                    </div>
-                </div>
-                <div class="button-group">
-                    <button id="startCamera" class="btn-success">📷 Start Camera</button>
-                    <button id="stopCamera" class="btn-danger">⏹️ Stop Camera</button>
-                    <button id="capturePhoto" class="btn-primary">📸 Capture Photo</button>
-                    <button id="switchCamera" class="btn-info">🔄 Switch Camera</button>
-                </div>
-                <div id="photoPreview" class="photo-preview" style="display:none;">
-                    <img id="capturedImage" alt="Captured">
-                    <button onclick="sendPhotoToTarget()" class="btn-success">📤 Send to Target</button>
-                </div>
-            </div>
-        </div>
-
-        <!-- Gallery Tab -->
-        <div id="galleryTab" class="tab-content">
-            <div class="card">
-                <h3>🖼️ Gallery & Media</h3>
-                <input type="file" id="galleryInput" accept="image/*,video/*" multiple style="display:none;">
-                <div class="button-group">
-                    <button onclick="openGallery()" class="btn-primary">📁 Select from Gallery</button>
-                    <button onclick="captureFromCamera()" class="btn-success">📷 Take Photo</button>
-                    <button onclick="shareMedia()" class="btn-info">📤 Share to Target</button>
-                </div>
-                <div id="galleryPreview" class="gallery-preview"></div>
-            </div>
-        </div>
-
-        <!-- Control Tab -->
-        <div id="controlTab" class="tab-content">
-            <div class="card">
-                <h3>🎮 Remote Control</h3>
-                
-                <!-- Vibration Control -->
-                <div class="control-section">
-                    <h4>📳 Vibration Control</h4>
-                    <div class="button-group">
-                        <button id="vibrateNow" class="btn-vibrate">📳 Vibrate Now</button>
-                        <button id="toggleAutoVibe" class="btn-toggle">🔄 Auto-Vibrate: OFF</button>
-                    </div>
-                    <div class="control-group">
-                        <label>💪 Intensity: <span id="intensityVal">50</span>%</label>
-                        <input type="range" id="intensity" min="0" max="100" value="50">
-                    </div>
-                    <div class="control-group">
-                        <label>🎵 Pattern:</label>
-                        <select id="vibePattern">
-                            <option value="default">Default</option>
-                            <option value="pulse">Pulse</option>
-                            <option value="long">Long</option>
-                            <option value="short">Short</option>
-                            <option value="heartbeat">Heartbeat</option>
-                            <option value="sos">SOS</option>
-                        </select>
-                    </div>
-                </div>
-
-                <!-- Video Control -->
-                <div class="control-section">
-                    <h4>🎬 Video Player</h4>
-                    <div class="input-group">
-                        <input type="text" id="videoUrl" placeholder="Enter video URL" />
-                        <button onclick="playRemoteVideo()" class="btn-primary">Play on Target</button>
-                    </div>
-                    <video id="localVideo" controls class="local-video" style="display:none;"></video>
-                </div>
-
-                <!-- Notification Control -->
-                <div class="control-section">
-                    <h4>🔔 Send Notification</h4>
-                    <div class="input-group">
-                        <input type="text" id="notificationMsg" placeholder="Enter message" />
-                        <button onclick="sendNotification()" class="btn-info">Send</button>
-                    </div>
-                </div>
-            </div>
-        </div>
-
-        <!-- Status Log -->
+        <!-- Activity Log -->
         <div class="card">
             <h3>📝 Activity Log</h3>
             <div id="logMessages" class="log-messages"></div>
@@ -205,7 +161,7 @@
         </div>
     </div>
 
-    <!-- Firebase Configuration -->
+    <!-- Firebase Config -->
     <script type="module">
         const firebaseConfig = {
             apiKey: "AIzaSyAt9OJTiKpxaZrfhdB4NsdeHvK9LxjVVs8",
@@ -219,8 +175,8 @@
         };
         
         import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
-        import { getDatabase, ref, set, onValue, push, remove, update } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-database.js";
-        import { getStorage, ref as storageRef, uploadBytes, getDownloadURL } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-storage.js";
+        import { getDatabase, ref, set, onValue, remove } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-database.js";
+        import { getStorage, ref as storageRef, uploadString, getDownloadURL } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-storage.js";
         
         const app = initializeApp(firebaseConfig);
         const database = getDatabase(app);
@@ -231,13 +187,9 @@
         window.dbRef = ref;
         window.dbSet = set;
         window.dbOnValue = onValue;
-        window.dbPush = push;
         window.dbRemove = remove;
-        window.storageRef = storageRef;
-        window.uploadBytes = uploadBytes;
-        window.getDownloadURL = getDownloadURL;
         
-        console.log("Firebase connected successfully!");
+        console.log("✅ Firebase connected!");
     </script>
     
     <script src="script.js"></script>
