@@ -1,329 +1,477 @@
-
-
-
 // Global variables
 let currentDeviceId = null;
 let targetDeviceId = null;
-let autoVibrateEnabled = false;
-let currentVideoStream = null;
-let bluetoothDevice = null;
-let bluetoothCharacteristic = null;
+let autoVibrate = false;
+let screenShareStream = null;
+let isScreenSharing = false;
+let backgroundInterval = null;
+let wakeLock = null;
+let serviceWorker = null;
 
-// Initialize
-document.addEventListener('DOMContentLoaded', () => {
-    initializeDevice();
+// Initialize on load
+document.addEventListener('DOMContentLoaded', async () => {
+    await initializeDevice();
     setupEventListeners();
     setupFirebaseListeners();
-    addLog('App started successfully', 'success');
+    setupBackgroundMode();
+    registerServiceWorker();
+    addLog('✅ App initialized - Works in background!', 'success');
 });
 
-// Initialize device ID
-function initializeDevice() {
+// Initialize device
+async function initializeDevice() {
     currentDeviceId = localStorage.getItem('deviceId');
     if (!currentDeviceId) {
         currentDeviceId = 'device_' + Math.random().toString(36).substr(2, 9);
         localStorage.setItem('deviceId', currentDeviceId);
     }
+    
     document.getElementById('deviceId').textContent = currentDeviceId;
+    document.getElementById('statusText').textContent = 'Online';
+    
+    // Register in Firebase
+    if (window.dbSet) {
+        const deviceRef = window.dbRef(window.db, `devices/${currentDeviceId}`);
+        await window.dbSet(deviceRef, {
+            id: currentDeviceId,
+            status: 'online',
+            lastSeen: Date.now(),
+            name: navigator.userAgent
+        });
+    }
+    
     addLog(`Device ID: ${currentDeviceId}`, 'info');
-    
-    // Register device in Firebase
-    const deviceRef = ref(window.database, `devices/${currentDeviceId}`);
-    set(deviceRef, {
-        id: currentDeviceId,
-        status: 'online',
-        lastSeen: Date.now(),
-        target: null
-    });
-    
-    // Update status
-    document.getElementById('connectionStatus').innerHTML = `
-        <div class="led green"></div>
-        <span>Connected to Firebase</span>
-    `;
 }
 
 // Setup event listeners
 function setupEventListeners() {
-    document.getElementById('startVideo').addEventListener('click', startVideo);
-    document.getElementById('stopVideo').addEventListener('click', stopVideo);
-    document.getElementById('vibrateBtn').addEventListener('click', () => sendVibrateCommand('manual'));
-    document.getElementById('toggleAutoVibrate').addEventListener('click', toggleAutoVibrate);
-    document.getElementById('intensity').addEventListener('input', updateIntensity);
-    document.getElementById('vibePattern').addEventListener('change', updatePattern);
-    document.getElementById('bluetoothBtn').addEventListener('click', connectBluetooth);
+    document.getElementById('startScreenShare').addEventListener('click', startScreenShare);
+    document.getElementById('stopScreenShare').addEventListener('click', stopScreenShare);
+    document.getElementById('viewScreenShare').addEventListener('click', viewScreenShare);
+    document.getElementById('vibrateNow').addEventListener('click', () => sendVibrateCommand());
+    document.getElementById('toggleAutoVibe').addEventListener('click', toggleAutoVibrate);
+    document.getElementById('intensity').addEventListener('input', (e) => {
+        document.getElementById('intensityVal').textContent = e.target.value;
+    });
+    document.getElementById('testBgVibrate').addEventListener('click', testBackgroundVibration);
 }
 
-// Setup Firebase listeners
+// Setup Firebase listeners for commands
 function setupFirebaseListeners() {
-    if (!window.database) return;
+    if (!window.dbOnValue) return;
     
-    const commandsRef = ref(window.database, `commands/${currentDeviceId}`);
-    onValue(commandsRef, (snapshot) => {
+    const commandsRef = window.dbRef(window.db, `commands/${currentDeviceId}`);
+    window.dbOnValue(commandsRef, (snapshot) => {
         const data = snapshot.val();
         if (data) {
-            handleIncomingCommand(data);
-            // Clear command after processing
-            set(ref(window.database, `commands/${currentDeviceId}`), null);
+            handleCommand(data);
+            // Clear after processing
+            window.dbRemove(window.dbRef(window.db, `commands/${currentDeviceId}`));
+        }
+    });
+    
+    // Listen for screen share
+    const screenRef = window.dbRef(window.db, `screenshare/${currentDeviceId}`);
+    window.dbOnValue(screenRef, (snapshot) => {
+        const data = snapshot.val();
+        if (data && data.active) {
+            displayRemoteScreen(data.signal);
         }
     });
 }
 
 // Handle incoming commands
-function handleIncomingCommand(command) {
-    addLog(`Received command: ${command.type} from ${command.from}`, 'info');
+function handleCommand(command) {
+    addLog(`📨 Received: ${command.type}`, 'info');
     
     switch(command.type) {
-        case 'start_video':
-            playVideo(command.data);
-            break;
-        case 'stop_video':
-            stopVideoPlayback();
-            break;
         case 'vibrate':
-            executeVibration(command.intensity, command.pattern);
+            executeVibration(command.intensity, command.pattern, command.duration);
             break;
         case 'auto_vibrate':
-            autoVibrateEnabled = command.enabled;
-            document.getElementById('toggleAutoVibrate').innerHTML = 
-                `<span class="btn-icon">🔄</span> Auto-Vibrate: ${autoVibrateEnabled ? 'ON' : 'OFF'}`;
+            autoVibrate = command.enabled;
+            document.getElementById('toggleAutoVibe').innerHTML = 
+                `🔄 Auto-Vibrate: ${autoVibrate ? 'ON' : 'OFF'}`;
+            break;
+        case 'screen_share_start':
+            startReceivingScreenShare();
+            break;
+        case 'screen_share_stop':
+            stopReceivingScreenShare();
+            break;
+        case 'play_video':
+            playVideo(command.url);
             break;
     }
 }
 
-// Start video
-function startVideo() {
+// Send command to target
+async function sendCommand(command) {
     if (!targetDeviceId) {
-        addLog('Please set target device first!', 'error');
-        alert('Please set target device ID first!');
+        addLog('⚠️ No target device set!', 'error');
+        alert('Please set target device first!');
+        return false;
+    }
+    
+    try {
+        const commandRef = window.dbRef(window.db, `commands/${targetDeviceId}`);
+        await window.dbSet(commandRef, {
+            ...command,
+            from: currentDeviceId,
+            timestamp: Date.now()
+        });
+        addLog(`✅ Command sent to ${targetDeviceId}`, 'success');
+        return true;
+    } catch(error) {
+        addLog(`❌ Error: ${error.message}`, 'error');
+        return false;
+    }
+}
+
+// Start Screen Share
+async function startScreenShare() {
+    try {
+        addLog('🎥 Starting screen share...', 'info');
+        
+        // Request screen capture
+        screenShareStream = await navigator.mediaDevices.getDisplayMedia({
+            video: {
+                cursor: "always"
+            },
+            audio: false
+        });
+        
+        isScreenSharing = true;
+        
+        // Update UI
+        document.getElementById('screenShareStatus').innerHTML = 
+            '🟢 Screen sharing active';
+        document.getElementById('screenShareStatus').style.background = '#e8f5e9';
+        
+        // Send command to target
+        await sendCommand({
+            type: 'screen_share_start',
+            from: currentDeviceId
+        });
+        
+        // Store stream info in Firebase
+        const screenRef = window.dbRef(window.db, `screenshare/${currentDeviceId}`);
+        await window.dbSet(screenRef, {
+            active: true,
+            timestamp: Date.now()
+        });
+        
+        addLog('✅ Screen share started!', 'success');
+        
+        // Handle stream end
+        screenShareStream.getVideoTracks()[0].onended = () => {
+            stopScreenShare();
+        };
+        
+    } catch(error) {
+        addLog(`❌ Screen share failed: ${error.message}`, 'error');
+    }
+}
+
+// Stop Screen Share
+async function stopScreenShare() {
+    if (screenShareStream) {
+        screenShareStream.getTracks().forEach(track => track.stop());
+        screenShareStream = null;
+    }
+    
+    isScreenSharing = false;
+    document.getElementById('screenShareStatus').innerHTML = '⚪ Screen sharing stopped';
+    document.getElementById('screenShareStatus').style.background = '#f5f5f5';
+    
+    // Update Firebase
+    const screenRef = window.dbRef(window.db, `screenshare/${currentDeviceId}`);
+    await window.dbSet(screenRef, {
+        active: false,
+        timestamp: Date.now()
+    });
+    
+    await sendCommand({
+        type: 'screen_share_stop',
+        from: currentDeviceId
+    });
+    
+    addLog('⏹️ Screen share stopped', 'info');
+}
+
+// View remote screen share
+function viewScreenShare() {
+    if (!targetDeviceId) {
+        alert('Please set target device first!');
         return;
     }
     
-    addLog('Starting video...', 'info');
-    
-    // Simulate video - you can replace with actual camera stream
-    const videoElement = document.getElementById('videoPlayer');
-    const placeholder = document.getElementById('videoPlaceholder');
-    
-    // For demo, we'll use a sample video
-    videoElement.style.display = 'block';
-    placeholder.style.display = 'none';
-    videoElement.src = 'https://sample-videos.com/video123/mp4/720/big_buck_bunny_720p_1mb.mp4';
-    videoElement.play();
-    
-    // Send command to target
-    sendCommandToTarget({
-        type: 'start_video',
-        from: currentDeviceId,
-        data: { source: currentDeviceId }
-    });
+    document.getElementById('remoteScreenCard').style.display = 'block';
+    addLog(`👁️ Viewing screen from ${targetDeviceId}`, 'info');
 }
 
-// Stop video
-function stopVideo() {
-    addLog('Stopping video...', 'info');
-    stopVideoPlayback();
-    
-    sendCommandToTarget({
-        type: 'stop_video',
-        from: currentDeviceId
-    });
-}
-
-// Stop video playback
-function stopVideoPlayback() {
-    const videoElement = document.getElementById('videoPlayer');
-    const placeholder = document.getElementById('videoPlaceholder');
-    
-    videoElement.pause();
-    videoElement.style.display = 'none';
-    placeholder.style.display = 'flex';
-}
-
-// Play video on target
-function playVideo(videoData) {
-    addLog('Playing video on this device', 'success');
-    const videoElement = document.getElementById('videoPlayer');
-    const placeholder = document.getElementById('videoPlaceholder');
-    
-    videoElement.style.display = 'block';
-    placeholder.style.display = 'none';
-    videoElement.src = 'https://sample-videos.com/video123/mp4/720/big_buck_bunny_720p_1mb.mp4';
-    videoElement.play();
-    
-    if (autoVibrateEnabled) {
-        executeVibration(50, 'pulse');
-    }
+// Display remote screen
+function displayRemoteScreen(signal) {
+    const videoElement = document.getElementById('remoteScreen');
+    // Note: For full WebRTC implementation, you'd need to set up peer connection
+    // This is a simplified version
+    addLog('📺 Remote screen feed received', 'info');
 }
 
 // Send vibrate command
-function sendVibrateCommand(source) {
-    if (!targetDeviceId) {
-        addLog('Please set target device first!', 'error');
-        alert('Please set target device ID first!');
-        return;
-    }
-    
+async function sendVibrateCommand() {
     const intensity = document.getElementById('intensity').value;
     const pattern = document.getElementById('vibePattern').value;
+    const duration = document.getElementById('duration').value;
     
-    addLog(`Sending vibrate command (${pattern}) with ${intensity}% intensity`, 'info');
-    
-    sendCommandToTarget({
+    await sendCommand({
         type: 'vibrate',
-        from: currentDeviceId,
         intensity: intensity,
-        pattern: pattern
+        pattern: pattern,
+        duration: duration
     });
     
-    // Also vibrate current device if Bluetooth connected
-    if (bluetoothCharacteristic) {
-        sendBluetoothVibration(intensity, pattern);
-    }
+    // Execute locally as well
+    executeVibration(intensity, pattern, duration);
 }
 
-// Execute vibration on current device
-function executeVibration(intensity, pattern) {
-    addLog(`Vibrating with ${pattern} pattern at ${intensity}%`, 'vibrate');
+// Execute vibration (works in background)
+function executeVibration(intensity, pattern, duration) {
+    addLog(`📳 Vibrating: ${pattern} at ${intensity}% for ${duration}ms`, 'vibrate');
     
-    // Check if vibration API is available
     if ('vibrate' in navigator) {
-        let duration = 200;
+        let patternArray = [];
+        
         switch(pattern) {
             case 'pulse':
-                duration = 100;
-                navigator.vibrate([duration, 100, duration, 100, duration]);
+                patternArray = [200, 100, 200, 100, 200];
                 break;
             case 'long':
-                duration = 800;
-                navigator.vibrate(duration);
+                patternArray = [parseInt(duration)];
                 break;
             case 'short':
-                duration = 100;
-                navigator.vibrate(duration);
+                patternArray = [100];
                 break;
-            case 'double':
-                navigator.vibrate([200, 100, 200]);
+            case 'heartbeat':
+                patternArray = [200, 100, 200, 300, 400, 200];
                 break;
             default:
-                duration = 300;
-                navigator.vibrate(duration);
+                patternArray = [parseInt(duration)];
         }
         
-        // Adjust intensity (not all browsers support intensity)
-        addLog(`Vibration executed!`, 'success');
+        // Adjust intensity (simulated)
+        const adjustedDuration = Math.floor(duration * (intensity / 100));
+        
+        try {
+            navigator.vibrate(patternArray);
+            
+            // Visual feedback
+            document.body.style.transition = 'background 0.1s';
+            document.body.style.backgroundColor = '#ff9800';
+            setTimeout(() => {
+                document.body.style.backgroundColor = '';
+            }, 200);
+            
+        } catch(e) {
+            addLog('⚠️ Vibration error', 'error');
+        }
     } else {
-        addLog('Vibration not supported on this device', 'error');
-        // Visual feedback
-        document.body.style.backgroundColor = '#ffc107';
-        setTimeout(() => document.body.style.backgroundColor = '', 300);
+        // Fallback: alert for devices without vibration
+        addLog('⚠️ Vibration not supported', 'warning');
+        alert('📳 Vibration would occur here!');
     }
 }
 
 // Toggle auto vibrate
-function toggleAutoVibrate() {
-    autoVibrateEnabled = !autoVibrateEnabled;
-    document.getElementById('toggleAutoVibrate').innerHTML = 
-        `<span class="btn-icon">🔄</span> Auto-Vibrate: ${autoVibrateEnabled ? 'ON' : 'OFF'}`;
+async function toggleAutoVibrate() {
+    autoVibrate = !autoVibrate;
+    document.getElementById('toggleAutoVibe').innerHTML = 
+        `🔄 Auto-Vibrate: ${autoVibrate ? 'ON' : 'OFF'}`;
     
-    sendCommandToTarget({
+    await sendCommand({
         type: 'auto_vibrate',
-        from: currentDeviceId,
-        enabled: autoVibrateEnabled
+        enabled: autoVibrate
     });
     
-    addLog(`Auto-vibrate ${autoVibrateEnabled ? 'enabled' : 'disabled'}`, 'info');
+    addLog(`Auto-vibrate ${autoVibrate ? 'enabled' : 'disabled'}`, 'info');
 }
 
-// Update intensity
-function updateIntensity() {
-    const intensity = document.getElementById('intensity').value;
-    document.getElementById('intensityValue').textContent = intensity + '%';
+// Setup background mode
+async function setupBackgroundMode() {
+    // Request wake lock to keep screen on (optional)
+    try {
+        wakeLock = await navigator.wakeLock.request('screen');
+        addLog('🔋 Screen wake lock acquired', 'success');
+    } catch(e) {
+        addLog('⚠️ Wake lock not supported', 'warning');
+    }
+    
+    // Handle visibility change (screen off/background)
+    document.addEventListener('visibilitychange', () => {
+        if (document.hidden) {
+            addLog('📱 App in background - Still working!', 'info');
+            startBackgroundTasks();
+        } else {
+            addLog('📱 App in foreground', 'info');
+            stopBackgroundTasks();
+        }
+    });
+    
+    // Keep-alive ping every 30 seconds
+    setInterval(async () => {
+        if (window.dbSet && currentDeviceId) {
+            const deviceRef = window.dbRef(window.db, `devices/${currentDeviceId}`);
+            await window.dbSet(deviceRef, {
+                ...(await window.dbSet(deviceRef, {})),
+                lastSeen: Date.now(),
+                status: 'online'
+            });
+            addLog('💓 Heartbeat sent', 'info');
+        }
+    }, 30000);
 }
 
-// Update pattern
-function updatePattern() {
-    const pattern = document.getElementById('vibePattern').value;
-    addLog(`Vibration pattern changed to: ${pattern}`, 'info');
+// Start background tasks
+function startBackgroundTasks() {
+    if (backgroundInterval) return;
+    
+    backgroundInterval = setInterval(() => {
+        addLog('🔄 Background service running...', 'info');
+        // Check for pending commands
+        checkPendingCommands();
+    }, 5000);
+}
+
+// Stop background tasks
+function stopBackgroundTasks() {
+    if (backgroundInterval) {
+        clearInterval(backgroundInterval);
+        backgroundInterval = null;
+    }
+}
+
+// Check pending commands (for background mode)
+async function checkPendingCommands() {
+    if (!window.dbOnValue) return;
+    
+    const commandsRef = window.dbRef(window.db, `commands/${currentDeviceId}`);
+    window.dbOnValue(commandsRef, (snapshot) => {
+        const data = snapshot.val();
+        if (data && data.pending) {
+            handleCommand(data);
+        }
+    }, { onlyOnce: true });
+}
+
+// Register Service Worker for background sync
+async function registerServiceWorker() {
+    if ('serviceWorker' in navigator) {
+        try {
+            const registration = await navigator.serviceWorker.register('/sw.js');
+            serviceWorker = registration;
+            addLog('✅ Service Worker registered', 'success');
+            
+            // Request notification permission
+            if ('Notification' in window) {
+                const permission = await Notification.requestPermission();
+                if (permission === 'granted') {
+                    addLog('🔔 Notifications enabled', 'success');
+                }
+            }
+        } catch(error) {
+            addLog('⚠️ Service Worker registration failed', 'warning');
+        }
+    }
+}
+
+// Test background vibration
+function testBackgroundVibration() {
+    addLog('🧪 Testing background vibration capability...', 'info');
+    executeVibration(70, 'pulse', 1000);
+    
+    // Show notification if in background
+    if (document.hidden && 'Notification' in window) {
+        new Notification('VibeControl', {
+            body: 'Vibration test in background mode!',
+            icon: 'https://via.placeholder.com/64'
+        });
+    }
+}
+
+// Play custom video
+function playCustomVideo() {
+    const url = document.getElementById('videoUrl').value;
+    if (!url) {
+        alert('Please enter a video URL');
+        return;
+    }
+    
+    playVideo(url);
+    
+    sendCommand({
+        type: 'play_video',
+        url: url
+    });
+}
+
+function playVideo(url) {
+    const video = document.getElementById('videoPlayer');
+    const placeholder = document.getElementById('videoPlaceholder');
+    
+    video.style.display = 'block';
+    placeholder.style.display = 'none';
+    video.src = url;
+    video.play();
+    
+    addLog(`▶️ Playing video: ${url}`, 'info');
 }
 
 // Set target device
 function setTargetDevice() {
-    const targetInput = document.getElementById('targetDevice').value;
-    if (targetInput && targetInput !== currentDeviceId) {
-        targetDeviceId = targetInput;
-        addLog(`Target device set to: ${targetDeviceId}`, 'success');
-        
-        // Update in Firebase
-        const deviceRef = ref(window.database, `devices/${currentDeviceId}/target`);
-        set(deviceRef, targetDeviceId);
-    } else if (targetInput === currentDeviceId) {
-        addLog('Cannot target yourself!', 'error');
+    const target = document.getElementById('targetDevice').value;
+    if (target && target !== currentDeviceId) {
+        targetDeviceId = target;
+        localStorage.setItem('targetDevice', targetDeviceId);
+        document.getElementById('targetStatus').innerHTML = 
+            `✅ Target set to: ${targetDeviceId}`;
+        document.getElementById('targetStatus').style.background = '#e8f5e9';
+        addLog(`🎯 Target device set: ${targetDeviceId}`, 'success');
+    } else if (target === currentDeviceId) {
         alert('Cannot target yourself!');
     } else {
-        addLog('Please enter a valid device ID', 'error');
+        alert('Please enter a valid device ID');
     }
 }
 
-// Send command to target device
-function sendCommandToTarget(command) {
-    if (!targetDeviceId) {
-        addLog('No target device set', 'error');
-        return;
-    }
-    
-    const commandRef = ref(window.database, `commands/${targetDeviceId}`);
-    set(commandRef, {
-        ...command,
-        timestamp: Date.now()
-    }).then(() => {
-        addLog(`Command sent to ${targetDeviceId}`, 'success');
-    }).catch(error => {
-        addLog(`Error sending command: ${error.message}`, 'error');
-    });
-}
-
-// Connect Bluetooth
-async function connectBluetooth() {
-    try {
-        addLog('Requesting Bluetooth device...', 'info');
-        
-        const device = await navigator.bluetooth.requestDevice({
-            acceptAllDevices: true,
-            optionalServices: ['battery_service']
-        });
-        
-        bluetoothDevice = device;
-        addLog(`Connected to: ${device.name || 'Unknown device'}`, 'success');
-        
-        const server = await device.gatt.connect();
-        addLog('GATT server connected', 'success');
-        
-        // For demo, we'll just show connection info
-        document.getElementById('bluetoothInfo').innerHTML = `
-            ✅ Connected to: ${device.name || 'Bluetooth Device'}<br>
-            ID: ${device.id}
-        `;
-        
-    } catch(error) {
-        addLog(`Bluetooth error: ${error.message}`, 'error');
-    }
-}
-
-// Send vibration via Bluetooth
-function sendBluetoothVibration(intensity, pattern) {
-    addLog(`Sending vibration via Bluetooth (${intensity}%)`, 'info');
-    // This would need actual Bluetooth characteristic implementation
-    // based on your specific Bluetooth device
-}
-
-// Copy device ID to clipboard
+// Copy device ID
 function copyDeviceId() {
-    const deviceId = document.getElementById('deviceId').textContent;
-    navigator.clipboard.writeText(deviceId).then(() => {
-        addLog('Device ID copied to clipboard!', 'success');
-        alert('Device ID copied!');
-    });
+    navigator.clipboard.writeText(currentDeviceId);
+    addLog('📋 Device ID copied!', 'success');
+    alert('Device ID copied!');
+}
+
+// Toggle fullscreen
+function toggleFullscreen() {
+    const elem = document.getElementById('remoteScreen');
+    if (elem.requestFullscreen) {
+        elem.requestFullscreen();
+    }
+}
+
+// Capture screenshot
+function captureScreenshot() {
+    const video = document.getElementById('remoteScreen');
+    const canvas = document.createElement('canvas');
+    canvas.width = video.videoWidth;
+    canvas.height = video.videoHeight;
+    canvas.getContext('2d').drawImage(video, 0, 0);
+    
+    const link = document.createElement('a');
+    link.download = 'screenshot.png';
+    link.href = canvas.toDataURL();
+    link.click();
+    
+    addLog('📸 Screenshot captured', 'success');
 }
 
 // Add log message
@@ -333,38 +481,55 @@ function addLog(message, type = 'info') {
     const timestamp = new Date().toLocaleTimeString();
     
     const colors = {
-        success: '#28a745',
-        error: '#dc3545',
-        info: '#17a2b8',
-        vibrate: '#ffc107',
-        warning: '#ff9800'
+        success: '#4caf50',
+        error: '#f44336',
+        info: '#2196f3',
+        vibrate: '#ff9800',
+        warning: '#ffc107'
     };
     
     logEntry.style.color = colors[type] || '#333';
+    logEntry.style.padding = '4px';
+    logEntry.style.borderLeft = `3px solid ${colors[type] || '#333'}`;
+    logEntry.style.marginBottom = '4px';
     logEntry.innerHTML = `[${timestamp}] ${message}`;
     logContainer.appendChild(logEntry);
     logContainer.scrollTop = logContainer.scrollHeight;
     
-    // Keep only last 50 messages
-    while(logContainer.children.length > 50) {
+    // Keep only last 100 messages
+    while(logContainer.children.length > 100) {
         logContainer.removeChild(logContainer.firstChild);
     }
 }
 
-// Clear log
 function clearLog() {
     document.getElementById('logMessages').innerHTML = '';
     addLog('Log cleared', 'info');
 }
 
-// Remove device from Firebase on page unload
-window.addEventListener('beforeunload', () => {
-    if (currentDeviceId && window.database) {
-        const deviceRef = ref(window.database, `devices/${currentDeviceId}`);
-        set(deviceRef, {
+// Handle page unload
+window.addEventListener('beforeunload', async () => {
+    if (screenShareStream) {
+        screenShareStream.getTracks().forEach(track => track.stop());
+    }
+    
+    if (currentDeviceId && window.dbSet) {
+        const deviceRef = window.dbRef(window.db, `devices/${currentDeviceId}`);
+        await window.dbSet(deviceRef, {
             id: currentDeviceId,
             status: 'offline',
             lastSeen: Date.now()
         });
     }
-});vvvv
+});
+
+// Start receiving screen share
+function startReceivingScreenShare() {
+    addLog('📺 Starting to receive screen share...', 'info');
+    document.getElementById('remoteScreenCard').style.display = 'block';
+}
+
+function stopReceivingScreenShare() {
+    addLog('⏹️ Screen share ended', 'info');
+    document.getElementById('remoteScreenCard').style.display = 'none';
+}
