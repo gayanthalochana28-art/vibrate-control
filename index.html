@@ -1,26 +1,132 @@
 <!DOCTYPE html>
-<html>
+<html lang="si">
 <head>
-  <title>📳 Vibrate Control</title>
-  <link rel="stylesheet" href="style.css">
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+    <title>VibeControl - Video Vibration Controller</title>
+    <link rel="stylesheet" href="style.css">
 </head>
 <body>
+    <div class="container">
+        <div class="header">
+            <h1>📱 VibeControl</h1>
+            <p>දුරකථන දෙකක් අතර Video Vibrate පාලනය</p>
+        </div>
 
-<h2>📳 Phone Vibrate Control</h2>
+        <!-- Connection Status -->
+        <div class="status-card">
+            <div class="status-indicator" id="connectionStatus">
+                <div class="led red"></div>
+                <span>Disconnected</span>
+            </div>
+            <div class="device-id-box">
+                <label>📋 ඔබගේ Device ID:</label>
+                <div class="device-id-display" id="deviceId">Loading...</div>
+                <button onclick="copyDeviceId()" class="btn-small">Copy</button>
+            </div>
+        </div>
 
-<div class="buttons">
-  <button onclick="onVibrate()">ON</button>
-  <button onclick="blinkVibrate()">BLINK</button>
-  <button onclick="offVibrate()">OFF</button>
-</div>
+        <!-- Control Panel for Main Phone -->
+        <div class="control-panel">
+            <h2>🎮 පාලන මධ්‍යස්ථානය</h2>
+            
+            <!-- Target Device Input -->
+            <div class="input-group">
+                <label>🎯 Target Device ID:</label>
+                <input type="text" id="targetDevice" placeholder="අනෙක් දුරකථනයේ Device ID එක..." />
+                <button onclick="setTargetDevice()" class="btn-secondary">Set Target</button>
+            </div>
 
-<h3>⚡ Speed Control</h3>
-<input type="range" min="100" max="1500" value="800" id="speedSlider">
-<p>Speed: <span id="speedValue">800</span> ms</p>
+            <!-- Video Vibrate Control Buttons -->
+            <div class="control-buttons">
+                <button id="startVideo" class="btn-primary video-btn">
+                    <span class="btn-icon">▶️</span> Start Video
+                </button>
+                <button id="stopVideo" class="btn-danger video-btn">
+                    <span class="btn-icon">⏹️</span> Stop Video
+                </button>
+                <button id="vibrateBtn" class="btn-vibrate">
+                    <span class="btn-icon">📳</span> Vibrate Now
+                </button>
+                <button id="toggleAutoVibrate" class="btn-toggle">
+                    <span class="btn-icon">🔄</span> Auto-Vibrate: OFF
+                </button>
+            </div>
 
-<script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-app.js"></script>
-<script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-database.js"></script>
-<script src="script.js"></script>
+            <!-- Vibration Intensity Control -->
+            <div class="intensity-control">
+                <label>💪 Vibration Intensity:</label>
+                <input type="range" id="intensity" min="0" max="100" value="50">
+                <span id="intensityValue">50%</span>
+            </div>
 
+            <!-- Pattern Selection -->
+            <div class="pattern-select">
+                <label>🎵 Vibration Pattern:</label>
+                <select id="vibePattern">
+                    <option value="default">Default (Normal)</option>
+                    <option value="pulse">Pulse (ස්පන්දන)</option>
+                    <option value="long">Long (දිගු)</option>
+                    <option value="short">Short (කෙටි)</option>
+                    <option value="double">Double (ද්විත්ව)</option>
+                </select>
+            </div>
+        </div>
+
+        <!-- Video Display Area -->
+        <div class="video-section">
+            <h3>📹 Video Stream</h3>
+            <video id="videoPlayer" controls autoplay muted style="display: none;"></video>
+            <div id="videoPlaceholder" class="video-placeholder">
+                <span>🎬 Video will appear here</span>
+            </div>
+        </div>
+
+        <!-- Status Log -->
+        <div class="status-log">
+            <h3>📝 Status Log</h3>
+            <div id="logMessages" class="log-messages"></div>
+            <button onclick="clearLog()" class="btn-small">Clear Log</button>
+        </div>
+
+        <!-- Bluetooth Status -->
+        <div class="bluetooth-status">
+            <h3>🔵 බ්ලූටූත් සම්බන්ධතාව</h3>
+            <button id="bluetoothBtn" class="btn-bluetooth">Connect Bluetooth</button>
+            <div id="bluetoothInfo" class="bluetooth-info"></div>
+        </div>
+    </div>
+
+    <!-- Firebase SDKs -->
+    <script type="module">
+        // Firebase configuration - REPLACE WITH YOUR OWN CONFIG
+        const firebaseConfig = {
+           apiKey: "AIzaSyAt9OJTiKpxaZrfhdB4NsdeHvK9LxjVVs8",
+  authDomain: "vibrate-control.firebaseapp.com",
+  databaseURL: "https://vibrate-control-default-rtdb.firebaseio.com",
+  projectId: "vibrate-control",
+  storageBucket: "vibrate-control.firebasestorage.app",
+  messagingSenderId: "359718226120",
+  appId: "1:359718226120:web:afa63eb4f2636a2dec3dfd",
+  measurementId: "G-YY4M9RCH4H"
+        };
+        
+        // Initialize Firebase
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
+        import { getDatabase, ref, set, onValue, update, push } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-database.js";
+        
+        const app = initializeApp(firebaseConfig);
+        const database = getDatabase(app);
+        
+        // Make database available globally
+        window.database = database;
+        window.ref = ref;
+        window.set = set;
+        window.onValue = onValue;
+        window.update = update;
+        window.push = push;
+    </script>
+    
+    <script src="script.js"></script>
 </body>
 </html>
