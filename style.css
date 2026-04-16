@@ -5,82 +5,66 @@
 }
 
 body {
-    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
-    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+    background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%);
     min-height: 100vh;
     padding: 20px;
 }
 
 .container {
-    max-width: 600px;
+    max-width: 800px;
     margin: 0 auto;
-    background: white;
-    border-radius: 25px;
-    box-shadow: 0 20px 60px rgba(0,0,0,0.3);
-    overflow: hidden;
-    animation: slideIn 0.5s ease;
 }
 
-@keyframes slideIn {
-    from {
-        opacity: 0;
-        transform: translateY(30px);
-    }
-    to {
-        opacity: 1;
-        transform: translateY(0);
-    }
+.card {
+    background: rgba(255,255,255,0.95);
+    border-radius: 20px;
+    padding: 20px;
+    margin-bottom: 20px;
+    box-shadow: 0 10px 30px rgba(0,0,0,0.2);
+    transition: transform 0.3s ease;
+}
+
+.card:hover {
+    transform: translateY(-2px);
 }
 
 .header {
     background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
     color: white;
-    padding: 30px 20px;
+    padding: 30px;
+    border-radius: 20px;
+    margin-bottom: 20px;
     text-align: center;
 }
 
-.header h1 {
-    font-size: 28px;
-    margin-bottom: 8px;
+.device-info {
+    background: rgba(255,255,255,0.95);
+    border-radius: 20px;
+    padding: 15px;
+    margin-bottom: 20px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 10px;
 }
 
-.header p {
-    font-size: 14px;
-    opacity: 0.9;
-}
-
-.status-card {
-    padding: 20px;
-    background: #f8f9fa;
-    border-bottom: 1px solid #e0e0e0;
-}
-
-.status-indicator {
+.status-badge {
     display: flex;
     align-items: center;
-    gap: 12px;
-    padding: 12px;
-    background: white;
-    border-radius: 12px;
-    margin-bottom: 15px;
-    box-shadow: 0 2px 5px rgba(0,0,0,0.05);
+    gap: 8px;
+    background: #e8f5e9;
+    padding: 8px 15px;
+    border-radius: 20px;
 }
 
-.led {
-    width: 12px;
-    height: 12px;
+.dot {
+    width: 10px;
+    height: 10px;
+    background: #4caf50;
     border-radius: 50%;
     animation: pulse 2s infinite;
-}
-
-.led.red {
-    background: #dc3545;
-    box-shadow: 0 0 5px #dc3545;
-}
-
-.led.green {
-    background: #28a745;
-    box-shadow: 0 0 5px #28a745;
 }
 
 @keyframes pulse {
@@ -92,78 +76,48 @@ body {
     display: flex;
     align-items: center;
     gap: 10px;
-    flex-wrap: wrap;
+    background: #f5f5f5;
+    padding: 8px 15px;
+    border-radius: 20px;
 }
 
-.device-id-box label {
-    font-weight: 600;
-    color: #333;
-}
-
-.device-id-display {
-    flex: 1;
-    background: #e9ecef;
-    padding: 8px 12px;
+.device-id-box code {
+    background: #e0e0e0;
+    padding: 4px 8px;
     border-radius: 8px;
-    font-family: monospace;
     font-size: 12px;
-    word-break: break-all;
 }
 
-.control-panel {
-    padding: 20px;
-}
-
-.control-panel h2 {
+.icon-btn {
+    background: none;
+    border: none;
     font-size: 20px;
-    margin-bottom: 20px;
-    color: #333;
+    cursor: pointer;
+    padding: 5px;
 }
 
 .input-group {
-    margin-bottom: 20px;
-}
-
-.input-group label {
-    display: block;
-    margin-bottom: 8px;
-    font-weight: 600;
-    color: #555;
+    display: flex;
+    gap: 10px;
+    margin-top: 10px;
 }
 
 .input-group input {
-    width: 100%;
+    flex: 1;
     padding: 12px;
     border: 2px solid #e0e0e0;
-    border-radius: 10px;
+    border-radius: 12px;
     font-size: 14px;
-    transition: border-color 0.3s;
-}
-
-.input-group input:focus {
-    outline: none;
-    border-color: #667eea;
-}
-
-.control-buttons {
-    display: grid;
-    grid-template-columns: repeat(2, 1fr);
-    gap: 12px;
-    margin-bottom: 20px;
 }
 
 button {
-    padding: 14px;
+    padding: 12px 20px;
     border: none;
     border-radius: 12px;
-    font-size: 16px;
+    font-size: 14px;
     font-weight: 600;
     cursor: pointer;
     transition: all 0.3s ease;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    gap: 8px;
 }
 
 button:hover {
@@ -171,149 +125,154 @@ button:hover {
     box-shadow: 0 5px 15px rgba(0,0,0,0.2);
 }
 
-button:active {
-    transform: translateY(0);
+.button-group {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+    gap: 10px;
+    margin-top: 10px;
 }
 
 .btn-primary {
-    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    background: linear-gradient(135deg, #667eea, #764ba2);
+    color: white;
+}
+
+.btn-screen {
+    background: #2196f3;
     color: white;
 }
 
 .btn-danger {
-    background: #dc3545;
+    background: #f44336;
+    color: white;
+}
+
+.btn-info {
+    background: #00bcd4;
     color: white;
 }
 
 .btn-vibrate {
-    background: #ffc107;
-    color: #333;
+    background: #ff9800;
+    color: white;
 }
 
 .btn-toggle {
-    background: #17a2b8;
+    background: #9c27b0;
     color: white;
 }
 
 .btn-secondary {
-    background: #6c757d;
+    background: #607d8b;
     color: white;
-    padding: 10px 20px;
-    font-size: 14px;
 }
 
-.btn-small {
-    background: #6c757d;
-    color: white;
-    padding: 6px 12px;
-    font-size: 12px;
+.control-group {
+    margin-top: 15px;
 }
 
-.btn-bluetooth {
-    background: #007bff;
-    color: white;
-    width: 100%;
-}
-
-.intensity-control {
-    margin-bottom: 20px;
-}
-
-.intensity-control label {
+.control-group label {
     display: block;
     margin-bottom: 8px;
     font-weight: 600;
+    color: #333;
 }
 
-.intensity-control input {
-    width: calc(100% - 60px);
-    margin-right: 10px;
-}
-
-.pattern-select {
-    margin-bottom: 20px;
-}
-
-.pattern-select select {
+.control-group input, 
+.control-group select {
     width: 100%;
     padding: 10px;
-    border-radius: 8px;
     border: 2px solid #e0e0e0;
-    margin-top: 8px;
+    border-radius: 10px;
 }
 
-.video-section {
-    padding: 20px;
-    background: #f8f9fa;
-    border-top: 1px solid #e0e0e0;
-}
-
-.video-section h3 {
-    margin-bottom: 15px;
+.video-player {
+    width: 100%;
+    border-radius: 12px;
+    margin-top: 10px;
 }
 
 .video-placeholder {
-    background: #e9ecef;
+    background: #f5f5f5;
     height: 200px;
     display: flex;
     align-items: center;
     justify-content: center;
     border-radius: 12px;
-    color: #6c757d;
+    color: #999;
 }
 
-#videoPlayer {
+.remote-video {
     width: 100%;
     border-radius: 12px;
+    background: #000;
 }
 
-.status-log {
-    padding: 20px;
-    border-top: 1px solid #e0e0e0;
+.screen-controls {
+    display: flex;
+    gap: 10px;
+    margin-top: 10px;
 }
 
 .log-messages {
-    background: #f8f9fa;
-    height: 150px;
+    background: #f5f5f5;
+    height: 200px;
     overflow-y: auto;
     padding: 10px;
-    border-radius: 8px;
+    border-radius: 12px;
     font-size: 12px;
     font-family: monospace;
-    margin-bottom: 10px;
+    margin-top: 10px;
 }
 
 .log-messages div {
-    padding: 4px 0;
+    padding: 5px;
     border-bottom: 1px solid #e0e0e0;
 }
 
-.bluetooth-status {
-    padding: 20px;
-    background: #e7f3ff;
-    border-top: 1px solid #b8daff;
+.bg-mode {
+    background: linear-gradient(135deg, #667eea20, #764ba220);
+    border: 2px solid #667eea;
 }
 
-.bluetooth-info {
+.target-status {
     margin-top: 10px;
+    padding: 8px;
+    border-radius: 8px;
     font-size: 12px;
-    color: #0056b3;
 }
 
-.btn-icon {
-    font-size: 18px;
+.screen-status {
+    margin-top: 10px;
+    padding: 8px;
+    border-radius: 8px;
+    font-size: 12px;
 }
 
-@media (max-width: 480px) {
+.video-controls {
+    display: flex;
+    gap: 10px;
+    margin-top: 10px;
+}
+
+.video-controls input {
+    flex: 1;
+    padding: 10px;
+    border: 2px solid #e0e0e0;
+    border-radius: 10px;
+}
+
+@media (max-width: 600px) {
     body {
         padding: 10px;
     }
     
-    .control-buttons {
+    .button-group {
         grid-template-columns: 1fr;
     }
     
-    .btn-icon {
-        font-size: 16px;
+    .device-info {
+        flex-direction: column;
+        text-align: center;
     }
 }
