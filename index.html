@@ -3,105 +3,136 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
-    <title>VibeControl - Video Vibration Controller</title>
+    <title>VibeControl Pro - Screen Share & Vibration Control</title>
     <link rel="stylesheet" href="style.css">
 </head>
 <body>
     <div class="container">
         <div class="header">
-            <h1>📱 VibeControl</h1>
-            <p>දුරකථන දෙකක් අතර Video Vibrate පාලනය</p>
+            <h1>📱 VibeControl Pro</h1>
+            <p>Screen Share + Video Vibrate Control + Background Mode</p>
         </div>
 
-        <!-- Connection Status -->
-        <div class="status-card">
-            <div class="status-indicator" id="connectionStatus">
-                <div class="led red"></div>
-                <span>Disconnected</span>
+        <!-- Device Info -->
+        <div class="device-info">
+            <div class="status-badge" id="connectionStatus">
+                <span class="dot"></span>
+                <span id="statusText">Connecting...</span>
             </div>
             <div class="device-id-box">
-                <label>📋 ඔබගේ Device ID:</label>
-                <div class="device-id-display" id="deviceId">Loading...</div>
-                <button onclick="copyDeviceId()" class="btn-small">Copy</button>
+                <strong>📱 Device ID:</strong>
+                <code id="deviceId">Loading...</code>
+                <button onclick="copyDeviceId()" class="icon-btn">📋</button>
             </div>
         </div>
 
-        <!-- Control Panel for Main Phone -->
-        <div class="control-panel">
-            <h2>🎮 පාලන මධ්‍යස්ථානය</h2>
-            
-            <!-- Target Device Input -->
+        <!-- Target Device -->
+        <div class="card">
+            <h3>🎯 Target Device</h3>
             <div class="input-group">
-                <label>🎯 Target Device ID:</label>
-                <input type="text" id="targetDevice" placeholder="අනෙක් දුරකථනයේ Device ID එක..." />
-                <button onclick="setTargetDevice()" class="btn-secondary">Set Target</button>
+                <input type="text" id="targetDevice" placeholder="Enter target device ID" />
+                <button onclick="setTargetDevice()" class="btn-primary">Set Target</button>
             </div>
+            <div id="targetStatus" class="target-status"></div>
+        </div>
 
-            <!-- Video Vibrate Control Buttons -->
-            <div class="control-buttons">
-                <button id="startVideo" class="btn-primary video-btn">
-                    <span class="btn-icon">▶️</span> Start Video
+        <!-- Screen Share Section -->
+        <div class="card">
+            <h3>📺 Screen Share Control</h3>
+            <div class="button-group">
+                <button id="startScreenShare" class="btn-screen">
+                    🖥️ Start Screen Share
                 </button>
-                <button id="stopVideo" class="btn-danger video-btn">
-                    <span class="btn-icon">⏹️</span> Stop Video
+                <button id="stopScreenShare" class="btn-danger">
+                    ⏹️ Stop Screen Share
                 </button>
-                <button id="vibrateBtn" class="btn-vibrate">
-                    <span class="btn-icon">📳</span> Vibrate Now
-                </button>
-                <button id="toggleAutoVibrate" class="btn-toggle">
-                    <span class="btn-icon">🔄</span> Auto-Vibrate: OFF
+                <button id="viewScreenShare" class="btn-info">
+                    👁️ View Shared Screen
                 </button>
             </div>
+            <div id="screenShareStatus" class="screen-status"></div>
+        </div>
 
-            <!-- Vibration Intensity Control -->
-            <div class="intensity-control">
-                <label>💪 Vibration Intensity:</label>
+        <!-- Remote Screen Display -->
+        <div class="card" id="remoteScreenCard" style="display:none;">
+            <h3>🖥️ Remote Screen</h3>
+            <video id="remoteScreen" autoplay playsinline class="remote-video"></video>
+            <div class="screen-controls">
+                <button onclick="toggleFullscreen()" class="btn-small">🖥️ Fullscreen</button>
+                <button onclick="captureScreenshot()" class="btn-small">📸 Screenshot</button>
+            </div>
+        </div>
+
+        <!-- Vibration Control -->
+        <div class="card">
+            <h3>📳 Vibration Control</h3>
+            <div class="button-group">
+                <button id="vibrateNow" class="btn-vibrate">
+                    📳 Vibrate Now
+                </button>
+                <button id="toggleAutoVibe" class="btn-toggle">
+                    🔄 Auto-Vibrate: OFF
+                </button>
+            </div>
+            
+            <div class="control-group">
+                <label>💪 Intensity: <span id="intensityVal">50</span>%</label>
                 <input type="range" id="intensity" min="0" max="100" value="50">
-                <span id="intensityValue">50%</span>
             </div>
-
-            <!-- Pattern Selection -->
-            <div class="pattern-select">
-                <label>🎵 Vibration Pattern:</label>
+            
+            <div class="control-group">
+                <label>🎵 Pattern:</label>
                 <select id="vibePattern">
-                    <option value="default">Default (Normal)</option>
-                    <option value="pulse">Pulse (ස්පන්දන)</option>
-                    <option value="long">Long (දිගු)</option>
-                    <option value="short">Short (කෙටි)</option>
-                    <option value="double">Double (ද්විත්ව)</option>
+                    <option value="default">Default</option>
+                    <option value="pulse">Pulse</option>
+                    <option value="long">Long</option>
+                    <option value="short">Short</option>
+                    <option value="heartbeat">Heartbeat</option>
                 </select>
             </div>
+            
+            <div class="control-group">
+                <label>⏱️ Duration (ms):</label>
+                <input type="number" id="duration" value="500" min="100" max="5000">
+            </div>
         </div>
 
-        <!-- Video Display Area -->
-        <div class="video-section">
-            <h3>📹 Video Stream</h3>
-            <video id="videoPlayer" controls autoplay muted style="display: none;"></video>
+        <!-- Video Player -->
+        <div class="card">
+            <h3>🎬 Video Player</h3>
+            <video id="videoPlayer" controls class="video-player" style="display:none;"></video>
             <div id="videoPlaceholder" class="video-placeholder">
-                <span>🎬 Video will appear here</span>
+                <span>🎥 No video playing</span>
             </div>
+            <div class="video-controls">
+                <input type="text" id="videoUrl" placeholder="Enter video URL" />
+                <button onclick="playCustomVideo()" class="btn-secondary">Play Video</button>
+            </div>
+        </div>
+
+        <!-- Background Mode Status -->
+        <div class="card bg-mode">
+            <h3>🔋 Background Mode</h3>
+            <div class="bg-status">
+                <span id="bgStatus">✅ Active in background</span>
+                <button id="testBgVibrate" class="btn-small">Test BG Vibration</button>
+            </div>
+            <small>⚠️ This app continues working when screen is off or app is in background</small>
         </div>
 
         <!-- Status Log -->
-        <div class="status-log">
-            <h3>📝 Status Log</h3>
+        <div class="card">
+            <h3>📝 Activity Log</h3>
             <div id="logMessages" class="log-messages"></div>
             <button onclick="clearLog()" class="btn-small">Clear Log</button>
         </div>
-
-        <!-- Bluetooth Status -->
-        <div class="bluetooth-status">
-            <h3>🔵 බ්ලූටූත් සම්බන්ධතාව</h3>
-            <button id="bluetoothBtn" class="btn-bluetooth">Connect Bluetooth</button>
-            <div id="bluetoothInfo" class="bluetooth-info"></div>
-        </div>
     </div>
 
-    <!-- Firebase SDKs -->
+    <!-- Firebase Configuration - REPLACE WITH YOUR CONFIG -->
     <script type="module">
-        // Firebase configuration - REPLACE WITH YOUR OWN CONFIG
+        // TODO: Replace with your Firebase config from Firebase Console
         const firebaseConfig = {
-           apiKey: "AIzaSyAt9OJTiKpxaZrfhdB4NsdeHvK9LxjVVs8",
+        apiKey: "AIzaSyAt9OJTiKpxaZrfhdB4NsdeHvK9LxjVVs8",
   authDomain: "vibrate-control.firebaseapp.com",
   databaseURL: "https://vibrate-control-default-rtdb.firebaseio.com",
   projectId: "vibrate-control",
@@ -113,18 +144,19 @@
         
         // Initialize Firebase
         import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
-        import { getDatabase, ref, set, onValue, update, push } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-database.js";
+        import { getDatabase, ref, set, onValue, push, remove } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-database.js";
         
         const app = initializeApp(firebaseConfig);
         const database = getDatabase(app);
         
-        // Make database available globally
-        window.database = database;
-        window.ref = ref;
-        window.set = set;
-        window.onValue = onValue;
-        window.update = update;
-        window.push = push;
+        window.db = database;
+        window.dbRef = ref;
+        window.dbSet = set;
+        window.dbOnValue = onValue;
+        window.dbPush = push;
+        window.dbRemove = remove;
+        
+        console.log("Firebase initialized!");
     </script>
     
     <script src="script.js"></script>
